@@ -1,0 +1,43 @@
+# Import the libraries
+import numpy as np
+import pandas as pd
+from bs4 import BeautifulSoup as bs
+from urllib.request import urlopen  ## I'm currently trying to switch over to requests.get as it seems to give a better result
+import matplotlib.pyplot as plt
+import time
+import csv
+
+start_url = 'https://pitchfork.com/reviews/albums/'
+## Some kind of progressive piece that goes through all of the urls to grab reviews
+prog_review = 'https://pitchfork.com/reviews/albums/kacey-musgraves-golden-hour/'
+
+data = []
+
+for i in prog_review:    
+    page = urlopen(prog_review)
+    soup = bs(page, 'html.parser', time.sleep(1))
+    date = soup.find(attrs = {'class': 'pub-date'})
+    date = date.text.strip()
+    score = soup.find(attrs = {'class': 'score'})
+    score = score.text.strip()
+    artist = soup.find(attrs = {'class': 'artist-links artist-list single-album-tombstone__artist-links'})
+    artist = soup.text.strip()
+    album = soup.find(attrs = {'class': 'single-album-tombestone__review-title'})
+    album = soup.text.strip()
+    genre = soup.find(href = '/reviews/albums/?genre=folk', attrs = {'class', 'genre-list__link'})
+    genre = soup.text.strip()
+    bnm = soup.find(attrs = {'class': 'bnm-text'})
+    bnm = soup.text.strip()
+    data.append((artist, album, date, genre, score, bnm))
+
+with open('pitchfork_review.csv', 'w', encoding = 'utf-8') as csv_file:
+    writer = csv.writer(csv_file, lineterminator = '\n')
+    for artist, album, date, genre, score, bnm in data:
+        writer.writerow([artist, album, date, genre, score, bnm])
+        
+review_data = pd.read_csv('pitchfork_review.csv', headers = None)
+review_data = review_data.iloc[:, 2:5].values
+
+
+review_data.groupby([1]).plot([0], [1])
+plt.legend(pr[1], loc = 'best')
