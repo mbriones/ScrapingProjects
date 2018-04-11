@@ -1,0 +1,202 @@
+'''
+-----------------------------------
+# Importing the necessary libraries
+-----------------------------------
+'''
+import pandas as pd
+import numpy as np
+import csv
+
+'''
+--------------------------------------------------
+# Importing the data and preparing it for analysis
+--------------------------------------------------
+'''
+
+dataset = pd.read_csv('trainv1.csv')
+X = dataset.iloc[:, 1: 4].values
+y = dataset.iloc[:, 4:7].values
+id_num = dataset.iloc[:, 0:1].values
+
+from sklearn.model_selection import train_test_split
+X_train, X_test, y_train, y_test, id_num_train, id_num_test, train_set, test_set = train_test_split(X, y, id_num, dataset, test_size = 0.2, random_state = 63)
+
+'''
+-----------------------------------------------------
+# Preparing and running the Artificial Neural Network
+-----------------------------------------------------
+'''
+
+import keras  # Technically unused but activates tensorflow so needs to be called
+from keras.models import Sequential
+from keras.layers import Dense
+from keras.layers import Dropout
+
+classifier = Sequential()
+classifier.add(Dense(units = 5, kernel_initializer = 'uniform', activation = 'relu', input_dim = 3))
+
+classifier.add(Dense(units = 20, kernel_initializer = 'uniform', activation = 'relu'))
+classifier.add(Dense(units = 8, kernel_initializer = 'uniform', activation = 'relu'))
+classifier.add(Dense(units = 15, kernel_initializer = 'uniform', activation = 'relu'))
+
+classifier.add(Dense(units = 3, activation = 'softmax'))
+
+
+'''classifier.summary
+   classifier.layers''''
+
+'''
+-------------------------------------
+# Running the training neural network
+-------------------------------------
+'''
+
+classifier.compile(loss = 'categorical_crossentropy', optimizer = 'adam', metrics = ['accuracy'])
+
+classifier.fit(X_train, y_train, batch_size = 50, epochs = 500)
+
+'''
+-----------------------------------------------------
+# Grabbing and concatenating test data with test file
+-----------------------------------------------------
+'''
+
+train_y_pred = classifier.predict(X_test)
+train_percent_bin = train_y_pred
+
+train_result_bin = np.zeros_like(train_y_pred)
+train_result_bin[np.arange(len(train_y_pred)), train_y_pred.argmax(1)] = 1
+
+train_set_full = np.concatenate([id_num_test, train_result_bin], axis = 1)
+
+'''
+-------------------------------------------
+# Writing the test file to csv for analysis
+-------------------------------------------
+'''
+
+file = open('training_test_data.csv', 'w')
+with file:
+    writer = csv.writer(file)
+    writer.writerows(train_set_full)
+
+'''
+------------------------------------------------------------------
+# Preparing the exact match data for use with the loose match data
+------------------------------------------------------------------
+'''
+
+exact_match = dataset
+exact_X = exact_match.iloc[:, 1:4].values
+exact_y1 = exact_match.iloc[:, 4:5].values
+exact_y2 = exact_match.iloc[:, 5:6].values
+exact_y3 = exact_match.iloc[:, 6:7].values
+exact_id = exact_match.iloc[:, 0:1].values
+
+'''
+-----------------------------------------------------------------------------------------------------------------------
+# The full data, exact and loose matches is used here so that the exact match data can be used to doublecheck the model
+-----------------------------------------------------------------------------------------------------------------------
+'''
+
+full_data = pd.read_csv('testv1.csv')
+loose_X = full_data.iloc[:, 1:4].values ## There is no y-var in this dataset. It is reliant on an accurate exact match profile
+loose_id = full_data.iloc[:, 0:1].values
+
+'''
+--------------------------------------------------------------------
+# Fitting the model designed above to the full exact X/y data source
+--------------------------------------------------------------------
+'''
+
+classifier.fit(exact_X, exact_y, batch_size = 50, epochs = 500)
+
+'''
+-------------------------------------------
+# Grabbing and concatenating the loose data
+-------------------------------------------
+'''
+
+loose_y_pred = classifier.predict(loose_X)
+loose_percent_bin = loose_y_pred
+
+loose_result_bin = np.zeros_like(loose_y_pred)
+loose_result_bin[np.arange(len(loose_y_pred)), loose_y_pred.argmax(1)] = 1
+
+loose_set_full = np.concatenate([loose_id, loose_X], axis = 1)
+loose_set_full2 = np.concatenate([loose_set_full, loose_percent_bin], axis = 1)
+loose_set_final = np.concatenate([loose_set_full2, loose_result_bin], axis = 1)
+
+'''
+-------------------------------------
+# Writing to csv for further analysis
+-------------------------------------
+'''
+
+loose_file = open('full_dataset.csv', 'w')
+with loose_file:
+    writer = csv.writer(loose_file)
+    writer.writerows(loose_set_full)
+
+'''
+---------------------------------------------------
+# Checking the exact match y values for consistency
+---------------------------------------------------
+'''
+loose = loose_result_bin
+loose = pd.DataFrame(data = loose)
+loose_y1 = loose.iloc[:, 0:1].values
+loose_y2 = loose.iloc[:, 1:2].values
+loose_y3 = loose.iloc[:, 2:3].values
+
+exact1 = exact_y1
+exact2 = exact_y2
+exact3 = exact_y3
+loose1 = loose_y1
+loose2 = loose_y2
+loose3 = loose_y3
+
+exact2[exact2 > 0] = 2
+exact3[exact3 > 0] = 3
+
+loose2[loose2 > 0] = 2
+loose3[loose3 > 0] = 3
+
+exact_full = np.concatenate([exact1, exact2, exact3], axis = 1)
+loose_full = np.concatenate([loose1, loose2, loose3], axis = 1)
+
+loose_sum = loose_full.sum(axis = 1)
+exact_sum = exact_full.sum(axis = 1)
+
+loose_sum = pd.DataFrame(data = loose_sum)
+exact_sum = pd.DataFrame(data = exact_sum)
+
+exact_w_id = np.concatenate([exact_id, exact_sum], axis = 1)
+loose_w_id = np.concatenate([loose_id, loose_sum], axis = 1)
+loose_w_id = pd.DataFrame(data = loose_w_id)
+exact_w_id = pd.DataFrame(data = exact_w_id)
+
+loose_w_id.columns = ['id', 'group_loose']
+exact_w_id.columns = ['id', 'group_exact']
+
+'''
+-------------------------------------------------------------------------------------------------
+# Merge the exact and loose data to isolate only people we included in the initial training piece
+-------------------------------------------------------------------------------------------------
+'''
+
+comparison = pd.merge(exact_w_id, loose_w_id, how = 'inner', on = 'id')
+
+comparison['truth_value'] = comparison['group_exact'] - comparison['group_loose']
+comparison['truth_value'] = (comparison['truth_value'] == 0)
+
+comparison_count = comparison.iloc[:, 3:4]
+true_compared = comparison_count.sum()
+
+'''
+------------------
+# Percent accuracy
+------------------
+'''
+
+acc_score = true_compared / 60
