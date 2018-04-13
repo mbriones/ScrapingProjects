@@ -43,7 +43,7 @@ classifier.add(Dense(units = 3, activation = 'softmax'))
 
 
 '''classifier.summary
-   classifier.layers''''
+classifier.layers''''
 
 '''
 -------------------------------------
@@ -77,7 +77,7 @@ train_set_full = np.concatenate([id_num_test, train_result_bin], axis = 1)
 
 file = open('training_test_data.csv', 'w')
 with file:
-    writer = csv.writer(file)
+    writer = csv.writer(file, lineterminator = '\n')
     writer.writerows(train_set_full)
 
 '''
@@ -88,6 +88,7 @@ with file:
 
 exact_match = dataset
 exact_X = exact_match.iloc[:, 1:4].values
+exact_y = exact_match.iloc[:, 4:7].values
 exact_y1 = exact_match.iloc[:, 4:5].values
 exact_y2 = exact_match.iloc[:, 5:6].values
 exact_y3 = exact_match.iloc[:, 6:7].values
@@ -135,7 +136,7 @@ loose_set_final = np.concatenate([loose_set_full2, loose_result_bin], axis = 1)
 
 loose_file = open('full_dataset.csv', 'w')
 with loose_file:
-    writer = csv.writer(loose_file)
+    writer = csv.writer(loose_file, lineterminator = '\n')
     writer.writerows(loose_set_full)
 
 '''
@@ -199,4 +200,4 @@ true_compared = comparison_count.sum()
 ------------------
 '''
 
-acc_score = true_compared / 60
+acc_score = true_compared / comparison.shape[0]
